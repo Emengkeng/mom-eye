@@ -5,6 +5,11 @@ export const navLinks = [
     icon: "/assets/icons/home.svg",
   },
   {
+    label: "Object Detection",
+    route: "/object-detection",
+    icon: "/assets/icons/scan.svg",
+  },
+  {
     label: "Image Restore",
     route: "/transformations/add/restore",
     icon: "/assets/icons/image.svg",
