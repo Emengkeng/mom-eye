@@ -166,16 +166,86 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
   const onTransformHandler = async () => {
     setIsTransforming(true)
 
-    setTransformationConfig(
-      deepMergeObjects(newTransformation, transformationConfig)
-    )
+    // Check if we should use AI-powered transformation
+    const useAITransformation = type === 'remove' || type === 'recolor' || type === 'restore' || type === 'removeBackground';
+    
+    if (useAITransformation && image?.secureURL) {
+      try {
+        // Convert image to base64 for Gemini API
+        const response = await fetch(image.secureURL);
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
 
-    setNewTransformation(null)
+        // Call Gemini API for AI transformation
+        const aiResponse = await fetch('/api/banana-ai-model', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transformationType: type,
+            imageData: base64,
+            userInput: {
+              prompt: form.getValues().prompt,
+              color: form.getValues().color,
+              aspectRatio: form.getValues().aspectRatio,
+              title: form.getValues().title,
+            }
+          }),
+        });
+
+        if (!aiResponse.ok) {
+          throw new Error('AI transformation failed');
+        }
+
+        const aiResult = await aiResponse.json();
+        
+        if (aiResult.success && aiResult.editedImageData) {
+          // Upload the AI-edited image back to Cloudinary
+          const uploadResponse = await fetch('/api/upload-ai-result', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageData: aiResult.editedImageData,
+              publicId: image.publicId + '_ai_edited',
+            }),
+          });
+
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            // Update transformation config with the new AI-edited image
+            setTransformationConfig({
+              ...newTransformation,
+              publicId: uploadResult.public_id,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('AI transformation error:', error);
+        // Fallback to regular Cloudinary transformation
+        setTransformationConfig(
+          deepMergeObjects(newTransformation, transformationConfig)
+        );
+      }
+    } else {
+      // Use regular Cloudinary transformations for 'fill' type
+      setTransformationConfig(
+        deepMergeObjects(newTransformation, transformationConfig)
+      );
+    }
+
+    setNewTransformation(null);
 
     startTransition(async () => {
-      await updateCredits(userId, creditFee)
-    })
-  }
+      await updateCredits(userId, creditFee);
+    });
+  };
 
   useEffect(() => {
     if(image && (type === 'restore' || type === 'removeBackground')) {
