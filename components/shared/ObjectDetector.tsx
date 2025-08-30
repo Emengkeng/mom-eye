@@ -40,11 +40,13 @@ const ObjectDetector: React.FC = () => {
   const [hoveredItem, setHoveredItem] = useState<number | null>(null);
   const [showLabels, setShowLabels] = useState(true);
   const [temperature, setTemperature] = useState(0.5);
+  const [expandedPoints, setExpandedPoints] = useState<{[key: number]: boolean}>({});
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  
 
   // Handle file upload
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -385,27 +387,44 @@ const ObjectDetector: React.FC = () => {
                 </div>
               )}
 
-              {/* Points Overlay */}
+              {/* Points Overlay - IMPROVED VERSION */}
               {results.points && (
                 <div className="absolute inset-0">
-                  {results.points.map((point, index) => (
-                    <div
-                      key={index}
-                      className="absolute"
-                      style={{
-                        left: `${point.x * 100}%`,
-                        top: `${point.y * 100}%`,
-                        transform: 'translate(-50%, -50%)',
-                      }}
-                    >
-                      <div className="w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-lg"></div>
-                      {showLabels && (
-                        <div className="bg-red-500 text-white text-xs px-2 py-1 absolute -top-8 left-1/2 transform -translate-x-1/2 rounded whitespace-nowrap">
-                          {point.label}
+                    {results.points.map((point, index) => {
+                    // Truncate long labels for display on the image
+                    const truncatedLabel = point.label.length > 15 
+                        ? `${point.label.substring(0, 15)}...` 
+                        : point.label;
+                    
+                    return (
+                        <div
+                        key={index}
+                        className="absolute group" // Added "group" class for hover effects
+                        style={{
+                            left: `${point.x * 100}%`,
+                            top: `${point.y * 100}%`,
+                            transform: 'translate(-50%, -50%)',
+                        }}
+                        >
+                        {/* The red dot - now with hover effects */}
+                        <div className="w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-lg cursor-pointer hover:scale-110 transition-transform"></div>
+                        
+                        {/* Short label that appears on hover */}
+                        {showLabels && (
+                            <div className="bg-red-500 text-white text-xs px-2 py-1 absolute -top-8 left-1/2 transform -translate-x-1/2 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            {truncatedLabel}
+                            </div>
+                        )}
+                        
+                        {/* Full label tooltip for long text - only shows if label was truncated */}
+                        {point.label.length > 15 && (
+                            <div className="bg-gray-900 text-white text-xs px-3 py-2 absolute -top-12 left-1/2 transform -translate-x-1/2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 max-w-xs whitespace-normal">
+                            {point.label}
+                            </div>
+                        )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                    })}
                 </div>
               )}
 
@@ -444,46 +463,90 @@ const ObjectDetector: React.FC = () => {
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <h3 className="font-medium text-gray-900 mb-3">Detection Results</h3>
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {results.boundingBoxes?.map((box, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center justify-between text-sm p-2 bg-white rounded border hover:bg-blue-50 cursor-pointer"
-                    onMouseEnter={() => setHoveredItem(index)}
-                    onMouseLeave={() => setHoveredItem(null)}
-                  >
-                    <span className="font-medium">{box.label}</span>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPin size={14} />
-                      <span>{Math.round(box.x * 100)}%, {Math.round(box.y * 100)}%</span>
-                    </div>
-                  </div>
-                ))}
-                {results.points?.map((point, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center justify-between text-sm p-2 bg-white rounded border hover:bg-red-50"
-                  >
-                    <span className="font-medium">{point.label}</span>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPin size={14} />
-                      <span>{Math.round(point.x * 100)}%, {Math.round(point.y * 100)}%</span>
-                    </div>
-                  </div>
-                ))}
-                {results.masks?.map((mask, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center justify-between text-sm p-2 bg-white rounded border hover:bg-green-50 cursor-pointer"
-                    onMouseEnter={() => setHoveredItem(index)}
-                    onMouseLeave={() => setHoveredItem(null)}
-                  >
-                    <span className="font-medium">{mask.label}</span>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Eye size={14} />
-                      <span>Segmented</span>
-                    </div>
-                  </div>
-                ))}
+                {results.boundingBoxes?.map((box, index) => {
+                    const truncatedLabel = box.label.length > 25 
+                        ? `${box.label.substring(0, 25)}...` 
+                        : box.label;
+                    
+                    return (
+                        <div 
+                        key={index}
+                        className="flex items-center justify-between text-sm p-2 bg-white rounded border hover:bg-blue-50 cursor-pointer group"
+                        onMouseEnter={() => setHoveredItem(index)}
+                        onMouseLeave={() => setHoveredItem(null)}
+                        title={box.label.length > 25 ? box.label : undefined} // Tooltip on hover
+                        >
+                        <span className="font-medium flex-1 truncate pr-2">{truncatedLabel}</span>
+                        <div className="flex items-center gap-2 text-gray-600 flex-shrink-0">
+                            <MapPin size={14} />
+                            <span>{Math.round(box.x * 100)}%, {Math.round(box.y * 100)}%</span>
+                        </div>
+                        </div>
+                    );
+                })}
+                {results.points?.map((point, index) => {
+                    const isExpanded = expandedPoints[index]; // Check if this item is expanded
+                    const shouldTruncate = point.label.length > 30; // Should we truncate this label?
+                    
+                    // Show full text if expanded OR if it's short, otherwise show truncated
+                    const displayLabel = !shouldTruncate || isExpanded 
+                        ? point.label 
+                        : `${point.label.substring(0, 30)}...`;
+                        
+                    return (
+                        <div 
+                        key={index}
+                        className="text-sm p-2 bg-white rounded border hover:bg-red-50"
+                        >
+                        <div className="flex items-start justify-between">
+                            {/* Left side - the label and expand button */}
+                            <div className="flex-1 pr-2">
+                            <span className="font-medium block">{displayLabel}</span>
+                            
+                            {/* Show "Read more" button only if text is long */}
+                            {shouldTruncate && (
+                                <button
+                                onClick={() => setExpandedPoints(prev => ({
+                                    ...prev,
+                                    [index]: !prev[index] // Toggle the expanded state for this item
+                                }))}
+                                className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                                >
+                                {isExpanded ? 'Show less' : 'Read more'}
+                                </button>
+                            )}
+                            </div>
+                            
+                            {/* Right side - the coordinates */}
+                            <div className="flex items-center gap-2 text-gray-600 flex-shrink-0">
+                            <MapPin size={14} />
+                            <span>{Math.round(point.x * 100)}%, {Math.round(point.y * 100)}%</span>
+                            </div>
+                        </div>
+                        </div>
+                    );
+                })}
+                {results.masks?.map((mask, index) => {
+                    const truncatedLabel = mask.label.length > 25 
+                        ? `${mask.label.substring(0, 25)}...` 
+                        : mask.label;
+                        
+                    return (
+                        <div 
+                        key={index}
+                        className="flex items-center justify-between text-sm p-2 bg-white rounded border hover:bg-green-50 cursor-pointer"
+                        onMouseEnter={() => setHoveredItem(index)}
+                        onMouseLeave={() => setHoveredItem(null)}
+                        title={mask.label.length > 25 ? mask.label : undefined}
+                        >
+                        <span className="font-medium flex-1 truncate pr-2">{truncatedLabel}</span>
+                        <div className="flex items-center gap-2 text-gray-600 flex-shrink-0">
+                            <Eye size={14} />
+                            <span>Segmented</span>
+                        </div>
+                        </div>
+                    );
+                })}
               </div>
             </div>
           )}
