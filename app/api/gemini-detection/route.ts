@@ -65,6 +65,13 @@ export async function POST(req: NextRequest) {
 
     let responseText = result.text;
 
+    if (!responseText) {
+      return NextResponse.json(
+        { error: 'No response from AI model' },
+        { status: 502 }
+      );
+    }
+    
     // Extract JSON from markdown code blocks if present
     if (responseText.includes('```json')) {
       responseText = responseText.split('```json')[1].split('```')[0];
