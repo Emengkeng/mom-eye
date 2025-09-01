@@ -28,16 +28,16 @@ export async function POST(request: Request) {
 
         console.log("[Polar Webhook] Event type:", eventType);
 
-        // Handle checkout completed event
-        if (eventType === "checkout.created" || eventType === "order.created") {
+        // Handle ONLY paid orders (guaranteed payment)
+        if (eventType === "order.paid") {
             const { id, amount, metadata, customer } = event.data;
 
-            console.log("[Polar Webhook] Checkout/Order created:", { id, amount, metadata, customer });
+            console.log("[Polar Webhook] Order paid:", { id, amount, metadata, customer });
 
             // Extract metadata that was set during checkout creation
             const transaction = {
-                polarId: id, // Changed from stripeId to polarId
-                amount: amount ? amount / 100 : 0, // Polar amounts are in cents like Stripe
+                polarId: id,
+                amount: amount ? amount / 100 : 0, // Use total_amount for final amount
                 plan: metadata?.plan || "",
                 credits: Number(metadata?.credits) || 0,
                 buyerId: metadata?.buyerId || "",
@@ -56,19 +56,29 @@ export async function POST(request: Request) {
             });
         }
 
-        // Handle subscription events plan to add subscriptions later
+        // Log other events but don't process them
+        if (eventType === "checkout.created") {
+            console.log("[Polar Webhook] Checkout created (not processing):", event.data.id);
+            return NextResponse.json({ message: "Checkout logged, waiting for payment" });
+        }
+
+        if (eventType === "order.created") {
+            console.log("[Polar Webhook] Order created (not processing):", event.data.id);
+            return NextResponse.json({ message: "Order created, waiting for payment" });
+        }
+
+        // Handle subscription events (plan to add subscriptions later)
         if (eventType === "subscription.created") {
-            // Handle subscription creation
             console.log("[Polar Webhook] Subscription created:", event.data);
+            return NextResponse.json({ message: "Subscription event received" });
         }
 
         if (eventType === "subscription.updated") {
-            // Handle subscription updates
             console.log("[Polar Webhook] Subscription updated:", event.data);
+            return NextResponse.json({ message: "Subscription event received" });
         }
 
         console.log("[Polar Webhook] Event processed:", eventType);
-
         return NextResponse.json({ message: "Event received" }, { status: 200 });
         
     } catch (error) {
