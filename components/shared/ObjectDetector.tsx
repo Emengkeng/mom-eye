@@ -3,7 +3,11 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Camera, Upload, Search, X, Loader2 } from 'lucide-react';
+import { Camera, Upload, Search, X, Loader2, CreditCard } from 'lucide-react';
+import { getCreditCost, hasEnoughCredits } from '@/constants';
+import { updateCredits } from '@/lib/actions/user.actions';
+import { InsufficientCreditsModal } from '@/components/shared/InsufficientCreditsModal';
+import { Badge } from '@/components/ui/badge';
 
 interface Point {
   x: number;
@@ -11,18 +15,33 @@ interface Point {
   label: string;
 }
 
-const ObjectDetector: React.FC = () => {
+interface ObjectDetectorProps {
+  userId: string;
+  creditBalance: number;
+}
+
+const ObjectDetector: React.FC<ObjectDetectorProps> = ({ userId, creditBalance }) => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [detectedImage, setDetectedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<{ points?: Point[] }>({});
   const [showLabels, setShowLabels] = useState(true);
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
+  const [currentBalance, setCurrentBalance] = useState(creditBalance);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Sync local state with prop changes
+  React.useEffect(() => {
+    setCurrentBalance(creditBalance);
+  }, [creditBalance]);
+
+  // Credit calculations
+  const detectionCost = Math.abs(getCreditCost('detection'));
+  const uploadCost = Math.abs(getCreditCost('upload'));
+  const totalCost = uploadCost + detectionCost;
+  const hasSufficientCredits = currentBalance >= totalCost;
 
   // Handle file upload
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,6 +118,10 @@ const ObjectDetector: React.FC = () => {
       return;
     }
 
+    if (!hasSufficientCredits) {
+      return; // InsufficientCreditsModal will be shown
+    }
+
     setIsLoading(true);
     try {
       const prompt = generatePrompt(searchQuery);
@@ -125,7 +148,11 @@ const ObjectDetector: React.FC = () => {
       if (data.success && data.results) {
         const processedResults = processResults(data.results);
         setResults(processedResults);
-        setDetectedImage(originalImage); // For now, same as original
+        setDetectedImage(originalImage);
+        
+        // Deduct credits after successful detection
+        await updateCredits(userId, -(uploadCost + detectionCost));
+        setCurrentBalance(prev => prev - totalCost);
       } else {
         throw new Error(data.error || 'No results returned');
       }
@@ -147,6 +174,30 @@ const ObjectDetector: React.FC = () => {
       fileInputRef.current.value = '';
     }
   };
+
+  const CreditDisplay = () => (
+    <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 mb-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="font-medium text-blue-800 flex items-center gap-2">
+            <CreditCard size={16} />
+            Object Detection Cost
+          </h4>
+          <p className="text-sm text-blue-600">
+            Upload ({uploadCost}) + Detection ({detectionCost}) credits
+          </p>
+        </div>
+        <div className="text-right">
+          <Badge variant={hasSufficientCredits ? "default" : "destructive"} className="text-lg">
+            {totalCost} credits
+          </Badge>
+          <div className="text-sm text-gray-600 mt-1">
+            Balance: {currentBalance}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const ResultsList = () => {
     if (!results.points?.length) return null;
@@ -252,6 +303,11 @@ const ObjectDetector: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {!hasSufficientCredits && <InsufficientCreditsModal />}
+      
+      {/* Credit Display */}
+      <CreditDisplay />
+
       {/* Upload Section */}
       <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
@@ -308,11 +364,13 @@ const ObjectDetector: React.FC = () => {
             />
             <Button 
               onClick={handleDetection}
-              disabled={!originalImage || isLoading || !searchQuery.trim()}
+              disabled={!originalImage || isLoading || !searchQuery.trim() || !hasSufficientCredits}
               className="bg-blue-600 hover:bg-blue-700"
             >
               {isLoading ? (
                 <Loader2 size={16} className="animate-spin" />
+              ) : !hasSufficientCredits ? (
+                `Need ${totalCost} Credits`
               ) : (
                 <Search size={16} />
               )}
@@ -356,8 +414,9 @@ const ObjectDetector: React.FC = () => {
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Be specific in your search (e.g., "red book" instead of "object")</li>
           <li>• The AI will point to and label the objects it finds</li>
-          <li>• Hover over the red dots to see object labels</li>
+          <li>• Hover over the green dots to see object labels</li>
           <li>• Works best with clear, well-lit images</li>
+          <li>• Each detection costs {totalCost} credits (upload + analysis)</li>
         </ul>
       </div>
     </div>

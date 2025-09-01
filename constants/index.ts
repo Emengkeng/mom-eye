@@ -124,6 +124,30 @@ export const plans = [
   },
 ];
 
+// Dynamic credit pricing based on transformation complexity
+export const creditPricing = {
+  restore: -2,           // Basic AI restoration
+  removeBackground: -3,  // Simple background removal
+  fill: -5,             // Generative fill (most complex)
+  remove: -4,           // Object removal with AI
+  recolor: -3,          // Object recoloring
+  upload: -1,           // Cost for uploading/processing image
+  detection: -2,        // Object detection and analysis
+} as const;
+
+export type TransformationType = keyof typeof creditPricing;
+
+// Helper function to get credit cost
+export const getCreditCost = (type: TransformationType): number => {
+  return creditPricing[type];
+};
+
+// Helper function to check if user has enough credits
+export const hasEnoughCredits = (userBalance: number, transformationType: TransformationType): boolean => {
+  const cost = Math.abs(getCreditCost(transformationType));
+  return userBalance >= cost;
+};
+
 export const transformationTypes = {
   restore: {
     type: "restore",
@@ -131,6 +155,7 @@ export const transformationTypes = {
     subTitle: "Refine images by removing noise and imperfections",
     config: { restore: true },
     icon: "image.svg",
+    creditCost: Math.abs(creditPricing.restore),
   },
   removeBackground: {
     type: "removeBackground",
@@ -138,6 +163,7 @@ export const transformationTypes = {
     subTitle: "Removes the background of the image using AI",
     config: { removeBackground: true },
     icon: "camera.svg",
+    creditCost: Math.abs(creditPricing.removeBackground),
   },
   fill: {
     type: "fill",
@@ -145,6 +171,7 @@ export const transformationTypes = {
     subTitle: "Enhance an image's dimensions using AI outpainting",
     config: { fillBackground: true },
     icon: "stars.svg",
+    creditCost: Math.abs(creditPricing.fill),
   },
   remove: {
     type: "remove",
@@ -154,6 +181,7 @@ export const transformationTypes = {
       remove: { prompt: "", removeShadow: true, multiple: true },
     },
     icon: "scan.svg",
+    creditCost: Math.abs(creditPricing.remove),
   },
   recolor: {
     type: "recolor",
@@ -163,6 +191,15 @@ export const transformationTypes = {
       recolor: { prompt: "", to: "", multiple: true },
     },
     icon: "filter.svg",
+    creditCost: Math.abs(creditPricing.recolor),
+  },
+  detection: {
+    type: "detection",
+    title: "Object Detection",
+    subTitle: "Find and identify objects in your images using AI",
+    config: { detection: true },
+    icon: "scan.svg",
+    creditCost: Math.abs(creditPricing.detection),
   },
 };
 
@@ -194,5 +231,3 @@ export const defaultValues = {
   prompt: "",
   publicId: "",
 };
-
-export const creditFee = -1;

@@ -20,7 +20,10 @@ const ObjectDetectionPage = async () => {
       />
       
       <section className="mt-6">
-        <ObjectDetector />
+        <ObjectDetector 
+          userId={user._id}
+          creditBalance={user.creditBalance}
+        />
       </section>
     </>
   );

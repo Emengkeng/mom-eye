@@ -23,7 +23,14 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { aspectRatioOptions, creditFee, defaultValues, transformationTypes } from "@/constants"
+import { 
+  aspectRatioOptions, 
+  getCreditCost, 
+  hasEnoughCredits,
+  defaultValues, 
+  transformationTypes,
+  TransformationType 
+} from "@/constants"
 import { CustomField } from "./CustomField"
 import { useEffect, useState, useTransition } from "react"
 import { AspectRatioKey, debounce, deepMergeObjects } from "@/lib/utils"
@@ -52,6 +59,15 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
   const [transformationConfig, setTransformationConfig] = useState(config)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
+  // Get dynamic credit cost for this transformation type
+  const creditCost = getCreditCost(type as TransformationType);
+  const transformationCost = Math.abs(creditCost);
+  const uploadCost = Math.abs(getCreditCost('upload'));
+  const totalCost = action === 'Add' ? transformationCost + uploadCost : transformationCost;
+
+  // Check if user has enough credits
+  const hasSufficientCredits = creditBalance >= totalCost;
 
   const initialValues = data && action === 'Update' ? {
     title: data?.title,
@@ -102,6 +118,9 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
           })
 
           if(newImage) {
+            // Deduct credits for upload + transformation
+            await updateCredits(userId, -(uploadCost + transformationCost))
+            
             form.reset()
             setImage(data)
             router.push(`/transformations/${newImage._id}`)
@@ -123,6 +142,8 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
           })
 
           if(updatedImage) {
+            // Only deduct transformation cost for updates
+            await updateCredits(userId, creditCost)
             router.push(`/transformations/${updatedImage._id}`)
           }
         } catch (error) {
@@ -165,6 +186,12 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
 
   const onTransformHandler = async () => {
     setIsTransforming(true)
+
+    // Check if user has enough credits before transformation
+    if (!hasSufficientCredits) {
+      setIsTransforming(false);
+      return;
+    }
 
     // Check if we should use AI-powered transformation
     const useAITransformation = type === 'remove' || type === 'recolor' || type === 'restore' || type === 'removeBackground';
@@ -241,10 +268,7 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
     }
 
     setNewTransformation(null);
-
-    startTransition(async () => {
-      await updateCredits(userId, creditFee);
-    });
+    setIsTransforming(false);
   };
 
   useEffect(() => {
@@ -256,7 +280,33 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {creditBalance < Math.abs(creditFee) && <InsufficientCreditsModal />}
+        {!hasSufficientCredits && <InsufficientCreditsModal />}
+        
+        {/* Credit Cost Display */}
+        <div className="credit-display">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-purple-100 border border-purple-200">
+            <div>
+              <h4 className="font-medium text-purple-800">
+                {transformationType.title} Transformation
+              </h4>
+              <p className="text-sm text-purple-600">
+                {action === 'Add' 
+                  ? `Upload (${uploadCost}) + Transform (${transformationCost}) credits`
+                  : `Transform: ${transformationCost} credits`
+                }
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-purple-800">
+                {totalCost} credits
+              </div>
+              <div className="text-sm text-gray-600">
+                Balance: {creditBalance}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <CustomField 
           control={form.control}
           name="title"
@@ -367,17 +417,21 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
           <Button 
             type="button"
             className="submit-button capitalize"
-            disabled={isTransforming || newTransformation === null}
+            disabled={isTransforming || newTransformation === null || !hasSufficientCredits}
             onClick={onTransformHandler}
           >
-            {isTransforming ? 'Transforming...' : 'Apply Transformation'}
+            {isTransforming ? 'Transforming...' : 
+             !hasSufficientCredits ? `Need ${totalCost} Credits` :
+             'Apply Transformation'}
           </Button>
           <Button 
             type="submit"
             className="submit-button capitalize"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !hasSufficientCredits}
           >
-            {isSubmitting ? 'Submitting...' : 'Save Image'}
+            {isSubmitting ? 'Submitting...' : 
+             !hasSufficientCredits ? 'Insufficient Credits' :
+             'Save Image'}
           </Button>
         </div>
       </form>
