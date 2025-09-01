@@ -412,7 +412,7 @@ const ObjectDetector: React.FC<ObjectDetectorProps> = ({ userId, creditBalance }
       <div className="bg-blue-50 rounded-lg p-4">
         <h3 className="font-medium text-blue-900 mb-2">Quick Tips</h3>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Be specific in your search (e.g., "red book" instead of "object")</li>
+          <li>• Be specific in your search (e.g., &quot;red book&quot; instead of &quot;object&quot;)</li>
           <li>• The AI will point to and label the objects it finds</li>
           <li>• Hover over the green dots to see object labels</li>
           <li>• Works best with clear, well-lit images</li>
