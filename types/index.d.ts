@@ -69,6 +69,7 @@ declare type Transformations = {
     multiple?: boolean;
   };
   removeBackground?: boolean;
+  publicId?: string;
 };
 
 // ====== TRANSACTION PARAMS

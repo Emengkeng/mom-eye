@@ -399,6 +399,7 @@ const TransformationForm = ({ action, data = null, userId, type, creditBalance, 
                 publicId={field.value}
                 image={image}
                 type={type}
+                userId={userId}
               />
             )}
           />
