@@ -132,6 +132,7 @@ export const creditPricing = {
   remove: -4,           // Object removal with AI
   recolor: -3,          // Object recoloring
   upload: -1,           // Cost for uploading/processing image
+  detection: -2,        // Object detection and analysis
 } as const;
 
 export type TransformationType = keyof typeof creditPricing;
@@ -191,6 +192,14 @@ export const transformationTypes = {
     },
     icon: "filter.svg",
     creditCost: Math.abs(creditPricing.recolor),
+  },
+  detection: {
+    type: "detection",
+    title: "Object Detection",
+    subTitle: "Find and identify objects in your images using AI",
+    config: { detection: true },
+    icon: "scan.svg",
+    creditCost: Math.abs(creditPricing.detection),
   },
 };
 
