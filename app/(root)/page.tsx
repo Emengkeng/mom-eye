@@ -1,6 +1,6 @@
 import { Collection } from "@/components/shared/Collection"
 import { navLinks } from "@/constants"
-import { getAllImages } from "@/lib/actions/image.actions"
+import { getPublicImages } from "@/lib/actions/image.actions" // Use getPublicImages instead
 import Image from "next/image"
 import Link from "next/link"
 
@@ -8,7 +8,8 @@ const Home = async ({ searchParams }: SearchParamProps) => {
   const page = Number(searchParams?.page) || 1;
   const searchQuery = (searchParams?.query as string) || '';
 
-  const images = await getAllImages({ page, searchQuery})
+  // Only fetch public images for the homepage
+  const images = await getPublicImages({ page, searchQuery})
 
   return (
     <>

@@ -22,6 +22,16 @@ export interface IImage extends Document {
   updatedAt?: Date;
 }
 
+
+// MongoDB query interface for type safety
+export interface ImageQuery {
+  privacy?: string;
+  author?: string;
+  publicId?: {
+    $in: string[];
+  };
+}
+
 const ImageSchema = new Schema({
   title: { type: String, required: true },
   transformationType: { type: String, required: true },
