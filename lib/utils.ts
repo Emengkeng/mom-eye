@@ -10,8 +10,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// ERROR HANDLER
+// IMPROVED ERROR HANDLER - properly handles Next.js redirects
 export const handleError = (error: unknown) => {
+  // Don't handle Next.js redirects - let them pass through
+  if (error && typeof error === 'object' && 'digest' in error && 
+      typeof error.digest === 'string' && error.digest.includes('NEXT_REDIRECT')) {
+    throw error;
+  }
+
   if (error instanceof Error) {
     // This is a native JavaScript error (e.g., TypeError, RangeError)
     console.error(error.message);

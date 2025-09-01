@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { plans } from "@/constants";
 import { getUserById } from "@/lib/actions/user.actions";
 import Checkout from "@/components/shared/Checkout";
+import { currentUser } from "@clerk/nextjs"; // Import to get user email
 
 const Credits = async () => {
   const { userId } = auth();
@@ -14,6 +15,7 @@ const Credits = async () => {
   if (!userId) redirect("/sign-in");
 
   const user = await getUserById(userId);
+  const clerkUser = await currentUser(); // Get Clerk user for email
 
   return (
     <>
@@ -66,6 +68,7 @@ const Credits = async () => {
                     amount={plan.price}
                     credits={plan.credits}
                     buyerId={user._id}
+                    buyerEmail={clerkUser?.emailAddresses[0]?.emailAddress || ""}
                   />
                 </SignedIn>
               )}
