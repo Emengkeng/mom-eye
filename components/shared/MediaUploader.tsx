@@ -5,6 +5,9 @@ import { dataUrl, getImageSize } from "@/lib/utils";
 import { CldImage, CldUploadWidget } from "next-cloudinary"
 import { PlaceholderValue } from "next/dist/shared/lib/get-img-props";
 import Image from "next/image";
+import { updateCredits } from "@/lib/actions/user.actions"
+import { getCreditCost } from "@/constants";
+
 
 type MediaUploaderProps = {
   onValueChange: (value: string) => void;
@@ -12,6 +15,7 @@ type MediaUploaderProps = {
   publicId: string;
   image: any;
   type: string;
+  userId: string;
 }
 
 const MediaUploader = ({
@@ -19,9 +23,11 @@ const MediaUploader = ({
   setImage,
   image,
   publicId,
-  type
+  type,
+  userId
 }: MediaUploaderProps) => {
   const { toast } = useToast()
+  const uploadCost = Math.abs(getCreditCost('upload'));
 
   const onUploadSuccessHandler = (result: any) => {
     setImage((prevState: any) => ({
@@ -33,6 +39,7 @@ const MediaUploader = ({
     }))
 
     onValueChange(result?.info?.public_id)
+    updateCredits(userId, -(uploadCost))
 
     toast({
       title: 'Image uploaded successfully',
