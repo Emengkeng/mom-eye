@@ -60,23 +60,27 @@ export async function createTransaction(transaction: CreateTransactionParams) {
   try {
     await connectToDatabase();
 
-    // Check if transaction already exists for this polarId
-    const existing = await Transaction.findOne({ polarId: transaction.polarId });
-    if (existing) {
+    const existingOrNew = await Transaction.findOneAndUpdate(
+      { polarId: transaction.polarId },
+      {
+        $setOnInsert: {
+          ...transaction,
+          buyer: transaction.buyerId,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    if (existingOrNew.createdAt === transaction.createdAt) {
+      // Only update credits if this was a *newly inserted* transaction
+      console.log(`[Transaction] New transaction detected. Updating credits for buyerId=${transaction.buyerId}, credits=${transaction.credits}`);
+      await updateCredits(transaction.buyerId, transaction.credits);
+      console.log(`[Transaction] Credits updated for buyerId=${transaction.buyerId}`);
+    } else {
       console.log(`[Transaction] Duplicate ignored. polarId=${transaction.polarId}`);
-      return existing; // just return the existing record
     }
 
-    // Create a new transaction
-    const newTransaction = await Transaction.create({
-      ...transaction,
-      buyer: transaction.buyerId,
-    });
-
-    // Update buyer's credits
-    await updateCredits(transaction.buyerId, transaction.credits);
-
-    return JSON.parse(JSON.stringify(newTransaction));
+    return JSON.parse(JSON.stringify(existingOrNew));
   } catch (error) {
     handleError(error);
   }
